@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kese Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --accent: #00e5a0;
+    --accent2: #0099ff;
+    --danger: #ff4d6d;
+    --warn: #ffaa00;
+    --text: #e8eaf0;
+    --muted: #5a607a;
+    --border: #2a2f45;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .badge {
+    background: var(--accent);
+    color: #000;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 20px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    gap: 4px;
+  }
+  .tab {
+    flex: 1;
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* Pages */
+  .page { display: none; padding: 20px; }
+  .page.active { display: block; }
+
+  /* Scanner */
+  .scanner-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  #reader {
+    width: 100% !important;
+    border-radius: var(--radius) var(--radius) 0 0;
+    overflow: hidden;
+  }
+  #reader video { border-radius: 0 !important; }
+  #reader img { display: none; }
+
+  .scan-result {
+    padding: 14px 16px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+  }
+  .scan-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .scan-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .scan-label { font-size: 13px; color: var(--muted); }
+  .scan-value { font-size: 14px; color: var(--accent); font-weight: 500; }
+
+  /* Form */
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; text-transform: uppercase; }
+
+  input, select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+
+  .search-wrap { position: relative; }
+  .search-wrap input { padding-right: 40px; }
+  .clear-btn {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; padding: 4px;
+  }
+
+  .machine-dropdown {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+  }
+  .machine-dropdown.show { display: block; }
+  .machine-option {
+    padding: 12px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .machine-option:last-child { border-bottom: none; }
+  .machine-option:hover, .machine-option.selected { background: var(--surface2); }
+  .machine-option .m-name { font-size: 14px; }
+  .machine-option .m-loc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .selected-machine {
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: none;
+  }
+  .selected-machine.show { display: block; }
+  .selected-machine .sm-name { font-size: 15px; font-weight: 500; color: var(--accent); }
+  .selected-machine .sm-info { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* Buttons */
+  .btn {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #000;
+  }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+  }
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    font-size: 13px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 80px; left: 20px; right: 20px;
+    background: var(--accent);
+    color: #000;
+    padding: 14px 18px;
+    border-radius: 12px;
+    font-weight: 500;
+    font-size: 14px;
+    z-index: 999;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s;
+    text-align: center;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { background: var(--danger); color: #fff; }
+
+  /* Records list */
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .record-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .record-card .rc-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .record-card .rc-machine {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .record-card .rc-time {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .record-card .rc-details {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .chip.barcode { color: var(--accent2); border-color: var(--accent2)33; }
+  .chip.loc { color: var(--warn); }
+
+  .delete-btn {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    font-size: 16px; padding: 4px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+  .delete-btn:hover { opacity: 1; color: var(--danger); }
+
+  .empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filter-chip {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .filter-chip.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-card .sv { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); }
+  .stat-card .sl { font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 0.5px; }
+
+  .export-section { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* Scan animation */
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .scanning { animation: pulse 1s infinite; }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💰 Kese Tracker</h1>
+  <span class="badge" id="totalBadge">0 kesa</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('scan')">📷 Skeniranje</div>
+  <div class="tab" onclick="switchTab('records')">📋 Evidencija</div>
+  <div class="tab" onclick="switchTab('export')">📤 Export</div>
+</div>
+
+<!-- ═══════ TAB: SCAN ═══════ -->
+<div class="page active" id="page-scan">
+
+  <div class="scanner-card">
+    <div id="reader"></div>
+    <div class="scan-result">
+      <div class="scan-dot" id="scanDot"></div>
+      <div>
+        <div class="scan-label">Barkod kese</div>
+        <div class="scan-value" id="scanValue">— čeka se skeniranje —</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Mašina</label>
+    <div class="search-wrap">
+      <input type="text" id="machineSearch" placeholder="Pretraži mašinu..." autocomplete="off"
+        oninput="filterMachines()" onfocus="showDropdown()" onblur="setTimeout(hideDropdown, 200)">
+      <button class="clear-btn" onclick="clearMachine()">×</button>
+    </div>
+    <div class="machine-dropdown" id="machineDropdown"></div>
+    <div class="selected-machine" id="selectedMachineInfo"></div>
+  </div>
+
+  <div class="form-group">
+    <label>Datum i vreme preuzimanja</label>
+    <input type="datetime-local" id="pickupTime">
+  </div>
+
+  <div class="form-group">
+    <label>Punilac (ime)</label>
+    <input type="text" id="punilacName" placeholder="Ime punilaca..." autocomplete="name">
+  </div>
+
+  <div class="form-group">
+    <label>Napomena (opciono)</label>
+    <input type="text" id="napomena" placeholder="Npr. delimično puna...">
+  </div>
+
+  <button class="btn btn-primary" id="saveBtn" onclick="saveRecord()" disabled>
+    ✓ Sačuvaj kesu
+  </button>
+</div>
+
+<!-- ═══════ TAB: RECORDS ═══════ -->
+<div class="page" id="page-records">
+  <div class="filter-bar" id="filterBar">
+    <div class="filter-chip active" onclick="setFilter('sve', this)">Sve</div>
+  </div>
+  <div id="recordsList"></div>
+</div>
+
+<!-- ═══════ TAB: EXPORT ═══════ -->
+<div class="page" id="page-export">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="sv" id="statTotal">0</div>
+      <div class="sl">UKUPNO KESA</div>
+    </div>
+    <div class="stat-card">
+      <div class="sv" id="statToday">0</div>
+      <div class="sl">DANAS</div>
+    </div>
+    <div class="stat-card">
+      <div class="sv" id="statMachines">0</div>
+      <div class="sl">MAŠINA</div>
+    </div>
+    <div class="stat-card">
+      <div class="sv" id="statPunilaci">0</div>
+      <div class="sl">PUNILACA</div>
+    </div>
+  </div>
+
+  <div class="section-title">Export podataka</div>
+  <div class="export-section">
+    <button class="btn btn-primary" onclick="exportCSV()">⬇ Export CSV (za Excel)</button>
+    <button class="btn btn-outline" onclick="exportJSON()">⬇ Export JSON (backup)</button>
+    <div class="divider"></div>
+    <button class="btn btn-danger" onclick="clearAll()">🗑 Obriši sve podatke</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA ────────────────────────────────────────────────────────────────────
+const MACHINES = [{"ID":27,"Ime":"Asist Digital","Lokacija":"Beograd"},{"ID":7,"Ime":"AsistDigital snek","Lokacija":"Beograd"},{"ID":28,"Ime":"Bogoslovija Kafa","Lokacija":"Beograd"},{"ID":26,"Ime":"Bogoslovija Snek","Lokacija":"Beograd"},{"ID":67,"Ime":"Clarivate 1","Lokacija":"Beograd"},{"ID":70,"Ime":"Clarivate 2","Lokacija":"Beograd"},{"ID":15,"Ime":"DIF 1","Lokacija":"Beograd"},{"ID":16,"Ime":"DIF 2","Lokacija":"Beograd"},{"ID":19,"Ime":"DIF snack","Lokacija":"Beograd"},{"ID":4,"Ime":"Desk&More VUK","Lokacija":"Desk&More Vuk"},{"ID":73,"Ime":"DizajnKafa 2","Lokacija":"Beograd"},{"ID":69,"Ime":"Dizajnerska","Lokacija":"Beograd"},{"ID":71,"Ime":"Dizajnerska snek","Lokacija":"Beograd"},{"ID":46,"Ime":"Dizajnerska2snek","Lokacija":"Beograd"},{"ID":42,"Ime":"Dom Zdravlja NI snek","Lokacija":"NIs"},{"ID":11,"Ime":"Euro Zastita","Lokacija":"Euro Zastita"},{"ID":6,"Ime":"Karena2","Lokacija":"Beograd"},{"ID":74,"Ime":"Kondina 2","Lokacija":"Kondina"},{"ID":72,"Ime":"Kvantas","Lokacija":"Beograd"},{"ID":43,"Ime":"MEDK1","Lokacija":"NIs"},{"ID":22,"Ime":"MEDK2","Lokacija":"NIs"},{"ID":13,"Ime":"MEDS1","Lokacija":"NIs"},{"ID":56,"Ime":"MEDS2","Lokacija":"NIs"},{"ID":20,"Ime":"ML Inter","Lokacija":"Beograd"},{"ID":8,"Ime":"ML Snek","Lokacija":"Beograd"},{"ID":25,"Ime":"Milenijum OS","Lokacija":"Beograd"},{"ID":57,"Ime":"MilenijumOS SNek","Lokacija":"Beograd"},{"ID":55,"Ime":"Nestle Snek","Lokacija":"Beograd"},{"ID":58,"Ime":"Nestle kafa","Lokacija":"Beograd"},{"ID":12,"Ime":"NisDZ kafa","Lokacija":"NIs"},{"ID":54,"Ime":"NisexpresS1","Lokacija":"NIs"},{"ID":21,"Ime":"NisexpresS2","Lokacija":"NIs"},{"ID":61,"Ime":"NisexpresS3","Lokacija":"NIs"},{"ID":10,"Ime":"Opština Mladenovac 2","Lokacija":"Opstina Mladenovac"},{"ID":62,"Ime":"S11 PreradaSnek","Lokacija":"Tigar"},{"ID":65,"Ime":"S13. Kamion Snek","Lokacija":"Tigar"},{"ID":66,"Ime":"S14 TC2Zavrsna Snek","Lokacija":"Tigar"},{"ID":44,"Ime":"S3 MIX 3 snek","Lokacija":"Tigar"},{"ID":41,"Ime":"SArena1","Lokacija":"Beograd"},{"ID":9,"Ime":"Slobodan 1","Lokacija":"Beograd"},{"ID":30,"Ime":"TK1 Uprava","Lokacija":"Tigar"},{"ID":38,"Ime":"TK10- Kamioni","Lokacija":"Tigar"},{"ID":39,"Ime":"TK11-Prerada","Lokacija":"Tigar"},{"ID":40,"Ime":"TK12-Kadrovska","Lokacija":"Tigar"},{"ID":24,"Ime":"TK13 Magacin","Lokacija":"Tigar"},{"ID":45,"Ime":"TK14 Babusnica","Lokacija":"Tigar"},{"ID":47,"Ime":"TK15 TC2Ulaz3","Lokacija":"Tigar"},{"ID":48,"Ime":"TK16 Restoran","Lokacija":"Tigar"},{"ID":49,"Ime":"TK17- TC1 Ulaz 6","Lokacija":"Tigar"},{"ID":50,"Ime":"TK18 - TC2 Ulaz5 Prvi sprat","Lokacija":"Tigar"},{"ID":51,"Ime":"TK19- TC1 ZAVRSNA","Lokacija":"Tigar"},{"ID":29,"Ime":"TK2 TC2 ulaz5","Lokacija":"Tigar"},{"ID":52,"Ime":"TK20-Prerada 2","Lokacija":"Tigar"},{"ID":68,"Ime":"TK22 Inzinjering","Lokacija":"Tigar"},{"ID":31,"Ime":"TK3 -2T","Lokacija":"Tigar"},{"ID":37,"Ime":"TK9 - TC2 Zavrsna","Lokacija":"Tigar"},{"ID":1,"Ime":"The Zoo1","Lokacija":"Desk&More Zooloski Vrt"},{"ID":2,"Ime":"TheZoo2","Lokacija":"Desk&More Zooloski Vrt"},{"ID":3,"Ime":"TheZoo3","Lokacija":"Desk&More Zooloski Vrt"},{"ID":5,"Ime":"TheZoo4","Lokacija":"Desk&More Zooloski Vrt"},{"ID":64,"Ime":"Tk21 Ambulanta","Lokacija":"Tigar"},{"ID":32,"Ime":"Tk4 konfekcija","Lokacija":"Tigar"},{"ID":33,"Ime":"Tk5 Mix3","Lokacija":"Tigar"},{"ID":34,"Ime":"Tk6 - TC2 ulaz1","Lokacija":"Tigar"},{"ID":35,"Ime":"Tk7-TC2 ulaz4","Lokacija":"Tigar"},{"ID":36,"Ime":"Tk8-TC2 ulaz 6","Lokacija":"Tigar"},{"ID":75,"Ime":"VUK KAFA","Lokacija":"Beograd"},{"ID":63,"Ime":"Vuk Snek","Lokacija":"Beograd"},{"ID":59,"Ime":"ZemunETK1","Lokacija":"Beograd"},{"ID":60,"Ime":"ZemunETS1","Lokacija":"Beograd"},{"ID":53,"Ime":"ZemunETS2","Lokacija":"Beograd"},{"ID":23,"Ime":"Zuboteh Snack2","Lokacija":"Beograd"},{"ID":18,"Ime":"Zubotehnicka Snack","Lokacija":"Beograd"},{"ID":17,"Ime":"Zubotehnicka skola","Lokacija":"Beograd"},{"ID":14,"Ime":"nisexpresK1","Lokacija":"NIs"}];
+
+let records = JSON.parse(localStorage.getItem('keseRecords') || '[]');
+let selectedMachine = null;
+let scannedBarcode = null;
+let currentFilter = 'sve';
+let scanner = null;
+
+// ── INIT ────────────────────────────────────────────────────────────────────
+function init() {
+  // Set datetime to now
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('pickupTime').value =
+    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  // Restore last punilac
+  const lastPunilac = localStorage.getItem('lastPunilac') || '';
+  document.getElementById('punilacName').value = lastPunilac;
+
+  updateBadge();
+  initScanner();
+  buildFilters();
+  renderRecords();
+  updateStats();
+}
+
+// ── SCANNER ─────────────────────────────────────────────────────────────────
+function initScanner() {
+  scanner = new Html5Qrcode('reader');
+  const config = { fps: 10, qrbox: { width: 250, height: 120 }, aspectRatio: 1.5 };
+  scanner.start(
+    { facingMode: 'environment' }, config,
+    (code) => onScan(code),
+    () => {}
+  ).catch(() => {
+    document.getElementById('reader').innerHTML =
+      '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">⚠️ Kamera nije dostupna.<br>Unesi barkod ručno ispod.</div>';
+    // Add manual input
+    const manualWrap = document.createElement('div');
+    manualWrap.style.cssText = 'padding:14px 16px;background:var(--surface2)';
+    manualWrap.innerHTML = '<input id="manualBarcode" type="text" placeholder="Unesi barkod ručno..." style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:DM Mono,monospace;font-size:14px;padding:10px 12px;outline:none">';
+    document.querySelector('.scanner-card').appendChild(manualWrap);
+    document.getElementById('manualBarcode').addEventListener('change', e => onScan(e.target.value));
+  });
+}
+
+function onScan(code) {
+  if (code === scannedBarcode) return;
+  scannedBarcode = code;
+  document.getElementById('scanValue').textContent = code;
+  document.getElementById('scanDot').classList.add('active');
+  // Vibrate
+  if (navigator.vibrate) navigator.vibrate(50);
+  checkSaveReady();
+}
+
+// ── MACHINE SEARCH ──────────────────────────────────────────────────────────
+function filterMachines() {
+  const q = document.getElementById('machineSearch').value.toLowerCase();
+  const dd = document.getElementById('machineDropdown');
+  if (!q) { dd.classList.remove('show'); return; }
+  const filtered = MACHINES.filter(m =>
+    m.Ime.toLowerCase().includes(q) || String(m.ID).includes(q) || m.Lokacija.toLowerCase().includes(q)
+  ).slice(0, 8);
+  dd.innerHTML = filtered.map(m =>
+    `<div class="machine-option" onclick="selectMachine(${m.ID})">
+      <div class="m-name">${m.Ime}</div>
+      <div class="m-loc">ID: ${m.ID} · ${m.Lokacija}</div>
+    </div>`
+  ).join('') || '<div class="machine-option" style="color:var(--muted)">Nema rezultata</div>';
+  dd.classList.add('show');
+}
+
+function showDropdown() { if (document.getElementById('machineSearch').value) filterMachines(); }
+function hideDropdown() { document.getElementById('machineDropdown').classList.remove('show'); }
+
+function selectMachine(id) {
+  selectedMachine = MACHINES.find(m => m.ID === id);
+  document.getElementById('machineSearch').value = selectedMachine.Ime;
+  document.getElementById('machineDropdown').classList.remove('show');
+  const info = document.getElementById('selectedMachineInfo');
+  info.innerHTML = `<div class="sm-name">✓ ${selectedMachine.Ime}</div><div class="sm-info">ID: ${selectedMachine.ID} · ${selectedMachine.Lokacija}</div>`;
+  info.classList.add('show');
+  checkSaveReady();
+}
+
+function clearMachine() {
+  selectedMachine = null;
+  document.getElementById('machineSearch').value = '';
+  document.getElementById('selectedMachineInfo').classList.remove('show');
+  document.getElementById('machineDropdown').classList.remove('show');
+  checkSaveReady();
+}
+
+function checkSaveReady() {
+  document.getElementById('saveBtn').disabled = !(scannedBarcode && selectedMachine);
+}
+
+// ── SAVE ────────────────────────────────────────────────────────────────────
+function saveRecord() {
+  const punilac = document.getElementById('punilacName').value.trim();
+  const time = document.getElementById('pickupTime').value;
+  const napomena = document.getElementById('napomena').value.trim();
+
+  if (!time) { showToast('Unesi datum i vreme!', true); return; }
+
+  // Check duplicate barcode
+  if (records.some(r => r.barcode === scannedBarcode)) {
+    if (!confirm(`Barkod ${scannedBarcode} je već evidentiran! Ipak sačuvaj?`)) return;
+  }
+
+  const rec = {
+    id: Date.now(),
+    barcode: scannedBarcode,
+    machineId: selectedMachine.ID,
+    machineName: selectedMachine.Ime,
+    lokacija: selectedMachine.Lokacija,
+    pickupTime: time,
+    punilac: punilac || '—',
+    napomena: napomena,
+    savedAt: new Date().toISOString()
+  };
+
+  records.unshift(rec);
+  localStorage.setItem('keseRecords', JSON.stringify(records));
+  if (punilac) localStorage.setItem('lastPunilac', punilac);
+
+  // Reset form
+  scannedBarcode = null;
+  selectedMachine = null;
+  document.getElementById('scanValue').textContent = '— čeka se skeniranje —';
+  document.getElementById('scanDot').classList.remove('active');
+  document.getElementById('machineSearch').value = '';
+  document.getElementById('selectedMachineInfo').classList.remove('show');
+  document.getElementById('napomena').value = '';
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('pickupTime').value =
+    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  checkSaveReady();
+  updateBadge();
+  buildFilters();
+  updateStats();
+  showToast('✓ Kesa sačuvana!');
+}
+
+// ── RECORDS ─────────────────────────────────────────────────────────────────
+function buildFilters() {
+  const locs = ['sve', ...new Set(records.map(r => r.lokacija))];
+  const bar = document.getElementById('filterBar');
+  bar.innerHTML = locs.map(l =>
+    `<div class="filter-chip ${l===currentFilter?'active':''}" onclick="setFilter('${l}',this)">${l==='sve'?'Sve':l}</div>`
+  ).join('');
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderRecords();
+}
+
+function renderRecords() {
+  const list = document.getElementById('recordsList');
+  const filtered = currentFilter === 'sve' ? records : records.filter(r => r.lokacija === currentFilter);
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">📭</div>Nema evidentiranih kesa</div>';
+    return;
+  }
+  list.innerHTML = filtered.map(r => {
+    const dt = new Date(r.pickupTime);
+    const dateStr = dt.toLocaleDateString('sr-RS') + ' ' + dt.toLocaleTimeString('sr-RS',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="record-card">
+      <button class="delete-btn" onclick="deleteRecord(${r.id})">×</button>
+      <div class="rc-top">
+        <div class="rc-machine">${r.machineName}</div>
+        <div class="rc-time">${dateStr}</div>
+      </div>
+      <div class="rc-details">
+        <span class="chip barcode">📦 ${r.barcode}</span>
+        <span class="chip loc">📍 ${r.lokacija}</span>
+        ${r.punilac !== '—' ? `<span class="chip">👤 ${r.punilac}</span>` : ''}
+        ${r.napomena ? `<span class="chip">💬 ${r.napomena}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteRecord(id) {
+  if (!confirm('Obriši ovaj unos?')) return;
+  records = records.filter(r => r.id !== id);
+  localStorage.setItem('keseRecords', JSON.stringify(records));
+  updateBadge(); buildFilters(); renderRecords(); updateStats();
+}
+
+// ── STATS ────────────────────────────────────────────────────────────────────
+function updateStats() {
+  const today = new Date().toDateString();
+  document.getElementById('statTotal').textContent = records.length;
+  document.getElementById('statToday').textContent = records.filter(r => new Date(r.pickupTime).toDateString()===today).length;
+  document.getElementById('statMachines').textContent = new Set(records.map(r=>r.machineId)).size;
+  document.getElementById('statPunilaci').textContent = new Set(records.map(r=>r.punilac).filter(p=>p!=='—')).size;
+}
+
+function updateBadge() {
+  document.getElementById('totalBadge').textContent = `${records.length} kesa`;
+}
+
+// ── EXPORT ──────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!records.length) { showToast('Nema podataka za export!', true); return; }
+  const headers = ['Barkod','ID Masine','Ime masine','Lokacija','Datum i vreme preuzimanja','Punilac','Napomena'];
+  const rows = records.map(r => [
+    r.barcode, r.machineId, r.machineName, r.lokacija,
+    new Date(r.pickupTime).toLocaleString('sr-RS'),
+    r.punilac, r.napomena
+  ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(','));
+  const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+  download(csv, `kese_${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+  showToast('✓ CSV exportovan!');
+}
+
+function exportJSON() {
+  if (!records.length) { showToast('Nema podataka za export!', true); return; }
+  download(JSON.stringify(records, null, 2), `kese_backup_${new Date().toISOString().slice(0,10)}.json`, 'application/json');
+  showToast('✓ JSON backup exportovan!');
+}
+
+function download(content, filename, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type}));
+  a.download = filename;
+  a.click();
+}
+
+function clearAll() {
+  if (!confirm('Obrisati SVE podatke? Ova akcija se ne može poništiti!')) return;
+  records = [];
+  localStorage.removeItem('keseRecords');
+  updateBadge(); buildFilters(); renderRecords(); updateStats();
+  showToast('Svi podaci obrisani');
+}
+
+// ── TABS ────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const tabs = ['scan','records','export'];
+  document.querySelectorAll('.tab')[tabs.indexOf(tab)].classList.add('active');
+  document.getElementById(`page-${tab}`).classList.add('active');
+  if (tab === 'records') renderRecords();
+  if (tab === 'export') updateStats();
+}
+
+// ── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError?' error':'');
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+init();
+</script>
+</body>
+</html>
