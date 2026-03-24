@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Kese Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
 
@@ -450,8 +451,11 @@
 
   <div class="section-title">Export podataka</div>
   <div class="export-section">
-    <button class="btn btn-primary" onclick="exportAndReset()">⬇ Export CSV i završi ciklus</button>
-    <button class="btn btn-outline" onclick="exportCSV()">⬇ Export CSV (samo preuzmi)</button>
+    <button class="btn btn-primary" onclick="exportAndReset()">⬇ Export i završi ciklus</button>
+    <div class="divider"></div>
+    <div class="section-title" style="margin-bottom:10px">Samo preuzmi</div>
+    <button class="btn btn-outline" onclick="exportFirma()">📤 Export za firmu (.xlsx)</button>
+    <button class="btn btn-outline" onclick="exportMoj()">📋 Export moj (.xlsx)</button>
     <div class="divider"></div>
     <button class="btn btn-danger" onclick="clearAll()">🗑 Obriši sve podatke</button>
   </div>
@@ -673,29 +677,59 @@ function updateBadge() {
 // ── EXPORT ──────────────────────────────────────────────────────────────────
 function exportAndReset() {
   if (!records.length) { showToast('Nema podataka za export!', true); return; }
-  if (!confirm(`Exportovati ${records.length} kesa i resetovati ciklus? Ova akcija briše sve podatke.`)) return;
-  doExportCSV();
+  if (!confirm(`Exportovati ${records.length} kesa i resetovati ciklus?`)) return;
+  doExportFirma();
+  doExportMoj();
   records = [];
   sessionStorage.removeItem('keseRecords');
   updateBadge(); buildFilters(); renderRecords(); updateStats();
-  showToast('✓ Export završen, novi ciklus počinje!');
+  showToast('✓ Oba fajla exportovana, novi ciklus počinje!');
 }
 
-function exportCSV() {
+function exportFirma() {
   if (!records.length) { showToast('Nema podataka za export!', true); return; }
-  doExportCSV();
-  showToast('✓ CSV exportovan!');
+  doExportFirma();
+  showToast('✓ Export za firmu preuzet!');
 }
 
-function doExportCSV() {
-  const headers = ['Barkod','ID Masine','Ime masine','Lokacija','Datum i vreme preuzimanja','Punilac','Napomena'];
-  const rows = records.map(r => [
-    r.barcode, r.machineId, r.machineName, r.lokacija,
-    new Date(r.pickupTime).toLocaleString('sr-RS'),
-    r.punilac, r.napomena
-  ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(','));
-  const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-  download(csv, `kese_${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+function exportMoj() {
+  if (!records.length) { showToast('Nema podataka za export!', true); return; }
+  doExportMoj();
+  showToast('✓ Moj export preuzet!');
+}
+
+function doExportFirma() {
+  const date = new Date().toISOString().slice(0,10);
+  const data = records.map(r => ({
+    'Barkod': r.barcode,
+    'ID Masine': r.machineId,
+    'Datum i vreme': new Date(r.pickupTime).toLocaleString('sr-RS'),
+    'Region': r.lokacija
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  // Column widths
+  ws['!cols'] = [{wch:20},{wch:12},{wch:22},{wch:20}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Kese');
+  XLSX.writeFile(wb, `kese_firma_${date}.xlsx`);
+}
+
+function doExportMoj() {
+  const date = new Date().toISOString().slice(0,10);
+  const data = records.map(r => ({
+    'Barkod': r.barcode,
+    'ID Masine': r.machineId,
+    'Ime masine': r.machineName,
+    'Lokacija': r.lokacija,
+    'Datum i vreme': new Date(r.pickupTime).toLocaleString('sr-RS'),
+    'Punilac': r.punilac,
+    'Napomena': r.napomena || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:20},{wch:12},{wch:25},{wch:22},{wch:22},{wch:18},{wch:25}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Kese');
+  XLSX.writeFile(wb, `kese_moj_${date}.xlsx`);
 }
 
 function clearAll() {
@@ -704,13 +738,6 @@ function clearAll() {
   sessionStorage.removeItem('keseRecords');
   updateBadge(); buildFilters(); renderRecords(); updateStats();
   showToast('Svi podaci obrisani');
-}
-
-function download(content, filename, type) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([content], {type}));
-  a.download = filename;
-  a.click();
 }
 
 // ── TABS ────────────────────────────────────────────────────────────────────
